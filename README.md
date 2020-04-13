@@ -2,14 +2,16 @@
 
 What dependency injection framework should you use for Ruby? **It Depends!**
 
-After spending a lot of my professional life with Spring Boot, I sorely missed dependency
-injection when I moved to Ruby. Other offerings out there didn't come close to the Spring
-Boot experience, so I decided to recreate it :)
+After spending a lot of my professional life with Spring Boot, I sorely missed [dependency
+injection](https://en.wikipedia.org/wiki/Dependency_injection) when I moved to Ruby. Other 
+offerings out there didn't come close to the SpringBoot experience, so I decided to roll 
+my own :)
 
-Dependency injection is great: you can decouple yourself from hard-coded classes to make 
-your classes more composable, and make testing much less specific to the web of objects
-you may have coupled yourself too! Its not just good for Java, its good for any 
-object-orientated language. Try it and see!
+Dependency injection is great. It enables you to satisfy the D (hey now!) in 
+[SOLID](https://en.wikipedia.org/wiki/Dependency_inversion_principle) so that you can decouple 
+your code from hard-coded classes to make them more composable, and make testing much less 
+specific to the web of objects you may have coupled yourself too! Its not just good for Java, 
+its good for any object-orientated language. Try it and see!
 
 ## Installation
 
@@ -36,7 +38,7 @@ with some dependencies expressed. It will illustrate the main concepts of **It D
 Please note that 3 hashes `###` indicate the start of a new `.rb` file :)
 
 ```ruby
-### app/service/guitar/default.rb
+### app/service/guitar/dimebag_darrell.rb
 
 # depend_on_me(id: 'dimebag', type: 'sandblasted_skin_service')
 module Service
@@ -69,7 +71,6 @@ end
 ### app/service/bass/victor_wooten.rb
 
 # depend_on_me(id: 'victor_mfkn_wooten', type: 'funkin_service')
-
 module Service
   module Bass
     class VictorWooten
@@ -85,9 +86,8 @@ end
 ### app/service/bass/bootsy_collins.rb
 
 # depend_on_me(id: 'boots', type: 'funkin_service')
-
 module Service
-  module Funkin
+  module Bass
     class BootsyCollins
       
       def call
@@ -98,10 +98,9 @@ module Service
   end
 end
 
-### app/service/band/the_greatest_ever.rb
+### app/service/band/default.rb
 
-# depend_on_me(id: '', type: 'awesome_service')
-
+# depend_on_me(id: 'greatest_band_ever', type: 'awesome_band_service')
 module Service
   module Band
     class Default
@@ -112,64 +111,85 @@ module Service
         @bassists = every_funkin_service
       end
 
-    def shred!
-      puts @guitarist.call # 'GETCHA PULL!'
-    end
+      def shred!
+        @guitarist.call # 'GETCHA PULL!'
+      end
 
-    def wail!
-      puts @singer.call # 'I AM THE ONE AND ONLY!'
-    end
+      def wail!
+        @singer.call # 'I AM THE ONE AND ONLY!'
+      end
 
-    def slap!
-      puts @bassists.map { | bassist | bassist.call } # ['FUNKY D!', 'WE WANT THE FUNK!']
+      def slap!
+        @bassists.each(:call) # 'FUNKY D!'
+                              # 'WE WANT THE FUNK!'
+      end
+
     end
   end
 end
 ```
 
-I mean, how awesome would this band be? Any way, what's happening here? Well, to say that
-a class can be used as a dependency, or requires dependency injection, we need to mark it.
+I mean, how awesome would this band be? Any way, what's happening here? To declare that
+a class is a dependency, or requires other dependencies, we need to mark it.
 That's what the `# depends_on_me` magic comment is all about! More about it below:
 
-- The `id:` parameter in the magic comment is intended to act as a unique identifier for 
-your class when the dependency tree is being calculated. If you specify two classes with 
-the same `id:` value, you're gonna have a bad time.
+- The `id` parameter in the magic comment is intended to act as a unique identifier for 
+your dependency. If you specify two classes with the same `id` value, you're gonna have 
+a bad time.
 
-- The `type:` parameter in the magic comment is intended to allow you to group related 
-classes together. This unlocks the power of *polymorphism*; use it wisely! There's no
-uniqueness validation for a `type:` value, you can specify duplicates all over the place,
+- The `type` parameter in the magic comment is intended to allow you to group dependencies 
+together. This unlocks the power of *polymorphism*; use it wisely! There's no
+uniqueness validation for a `type` value, you can specify duplicates all over the place,
 but with great power comes great responsibility. More on that in a moment...
 
-- Note that the `id:` and `type:` values do not relate to the file's location or classes' 
-namespace. This is intentional; thank me later ;)
+- Note that the `id` and `type` values do not relate to a file's location or the namespace
+defined in the file itself. This is intentional and prevents hard-coded dependencies; thank 
+me later when you get to refactoring ;)
 
-How do you specify dependencies? Glad you asked:
+How do you specify that your dependency has dependencies? Glad you asked:
 
-- If you want to pull in a dependency using a `type` value, just specify the `type` value as
-an `initialize` parameter for the class that requires a class with this `type` as a dependency. 
-This is demonstrated by the `sandblasted_skin_service` parameter for 
-`Service::Band::Default.initialize()` above. Note that, if **It Depends!** finds more than one 
-dependency with that `type` value, you're gonna have a bad time.
+- If you want to declare a dependency using a `type` value, just specify the `type` value as
+an `initialize` parameter. This is like using an interface for an `@Autowired` constructor in
+Spring Boot. The concept is demonstrated by the `sandblasted_skin_service` parameter for 
+`Service::Band::Default.initialize()` above. Remember when I said "More on that in a moment..."
+above? Well, if **It Depends!** finds more than one dependency with that `type` value when it
+tries to resolve your `initialize` parameter, you're gonna have a bad time.
 
-- If you want to pull in a dependency using an `id` value, pre-pend the intended classes' `id`
-value with `the_` and use the resulting value as an `initialize` parameter for the class that 
-requires that class as a dependency. This is demonstrated by the `the_one_and_only` parameter
-for `Service::Band::Default.initialize()` above.
+- If you want to declare a specific dependency (this is akin to hard-coding another class, but
+I know you won't abuse it...) you can use an `id` value. To do so, pre-pend the `id`
+value of the intended dependency with `the_` and use the resulting value as an `initialize` 
+parameter. This is demonstrated by `the_one_and_only` parameter for 
+`Service::Band::Default.initialize()` above.
 
-- If you can't make your mind up and you want all classes tagged with a particular `type` value,
+- If you want the **POWAH** of polymorphism, you can get all dependencies tagged with a particular 
+`type` value! This was one of the coolest features I found in Spring Boot, but its not immediately
+obvious that its available. So, I'm giving you the goods explicitly here! To do this, in *It Depends!*,
 pre-prend the intended `type` value with `every_` and use the resulting value as an `initialize` 
-parameter for the class that requires that class as a dependency. This is demonstrated by the 
-`the_every_funkin_service` parameter for `Service::Band::Default.initialize()` above. HELLO, 
-POLYMORPHISM!
+parameter. This is demonstrated by the `every_funkin_service` parameter for 
+`Service::Band::Default.initialize()` above. BOOM, HEADSHOT!
 
 ### Important Notes
 
 - **It Depends!** doesn't like dependency cycles. If it finds one, you're gonna have a bad time.
-- **It Depends!** uses [Zeitwerk|https://github.com/fxn/zeitwerk] as a code loader, so make sure
+- **It Depends!** uses [Zeitwerk](https://github.com/fxn/zeitwerk) as a code loader, so make sure
 you have a file structure that matches your namespace declarations. Shame on you if you don't already!
-- **It Depends!** looks recursively through an `app` directory at the top-level of your project 
-for classes to work with so, you know, move your required files into that directory (or create it, if
-you don't have it already).  
+- **It Depends!** looks recursively through the directory you specify to `ItDepends.setup`
+for classes to work with so.
+- **It Depends!** will try to resolve **all** of your `initialize` parameters as dependencies. So,
+if you have an `initialize` parameter that isn't a dependency, move it to another class, 
+*s'il vous plais*!
+
+### How do I actually use this library then?
+
+So far, I've used **It Depends!** in Rack applications so, in your `config.ru` invoke 
+`ItDepends.setup(path_to_your_app_directory)` at the appropriate time. This will return
+a hash of all the classes with their namespace as a key, and the actual object as a value,
+should you need it.
+
+**Note:** `path_to_your_app_directory` should be a string that defines the absolute path 
+to your application directory where dependencies need to be resolved. Directories in this 
+path need to be separated using Linux path separators, i.e. `/`, and there should be no 
+trailing path separators!
 
 ## Development
 
